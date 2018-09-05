@@ -27,6 +27,7 @@ void led2_off(void * arg)
 
 int main(void)
 {  
+    uint16_t i = 0;
     e_keys_status key_value = KEY_NONE;
 	delay_init(168);		  //初始化延时函数
 	LED_Init();		        //初始化LED端口
@@ -39,6 +40,7 @@ int main(void)
 	OLED_Init();			//初始化OLED  
 	OLED_Clear();
 	OLED_ShowString(0,0,"   KEY TEST",16);
+
     while(1)
     {
         key_value = key_out_fifo();
@@ -49,22 +51,28 @@ int main(void)
                 case KEY_1_DOWN:
                 {
                     OLED_ShowString(0,16,"KEY1 DOWN",16);
+                     OLED_ShowNum(60, 32, i++, 2, 16);
                     delay_ms(20);
-                    key_value = KEY_NONE;   //清掉
                 }break;
                 case KEY_1_UP:
                 {
                     OLED_ShowString(0,16,"                   ",16);
                     OLED_ShowString(0,16,"KEY1 UP",16);
+                   
                     delay_ms(20);
-                    key_value = KEY_NONE;   //清掉
+            
                 }break;
                 case KEY_1_LONG:
                 {
                     OLED_ShowString(0,16,"KEY1 LONG",16);
                     delay_ms(20);
-                    key_value = KEY_NONE;   //清掉
-                }break;                
+                 
+                }break;               
+                case KEY_1_DOUBLE:
+                {
+                     OLED_ShowString(0,16,"KEY1 DOUBLE",16);
+                    delay_ms(20);               
+                }
                 default:
                 {
                     

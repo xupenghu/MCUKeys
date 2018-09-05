@@ -159,19 +159,24 @@ static void keys_value_init(void)
 	for (i = 0; i < KEY_ID_MAX; i++)
 	{
 		keys[i].long_time = KEY_LONG_TIME;			/* 长按时间 0 表示不检测长按键事件 */
-		keys[i].count = KEY_FILTER_TIME / 2;		/* 计数器设置为滤波时间的一半 */
-		keys[i].state = 0;							            /* 按键缺省状态，0为未按下 */
+		keys[i].count = KEY_FILTER_TIME ;		/* 计数器设置为滤波时间 */
+		keys[i].state = LIFT;							            /* 按键缺省状态，0为未按下 */
 		keys[i].repeat_speed = KEY_REPEAT_TIME;						/* 按键连发的速度，0表示不支持连发 */
 		keys[i].repeat_count = 0;						/* 连发计数器 */
+        keys[i].double_count = 0;                      /* 双击计数器*/
+        
         keys[i].short_key_down = NULL;          /* 按键按下回调函数*/
         keys[i].skd_arg = NULL;                     /* 按键按下回调函数参数*/
         keys[i].short_key_up = NULL;            /* 按键抬起回调函数*/
         keys[i].sku_arg = NULL;                     /* 按键抬起回调函数参数*/
         keys[i].long_key_down = NULL;         /* 按键长按回调函数*/
-        keys[i].lkd_arg = NULL;                      /* 按键长按回调函数参数*/       
+        keys[i].lkd_arg = NULL;                      /* 按键长按回调函数参数*/    
+        keys[i].double_key_down = NULL;
+        keys[i].dkd_arg = NULL;
+        
         keys[i].get_key_status = get_key1_state;    /* 获取按键状态函数绑定 这个和平台有关*/
         
-        keys[i].report_flag = KEY_REPORT_DOWN | KEY_REPORT_UP | KEY_REPORT_LONG;
+        keys[i].report_flag = KEY_REPORT_DOWN | KEY_REPORT_UP | KEY_REPORT_LONG | KEY_REPORT_DOUBLE;
         
 	}
 
@@ -208,7 +213,7 @@ static void detect_key(e_keys_id key_id)
                 if(p_key->report_flag&KEY_REPORT_DOWN)  //如果定义了按键按下上报功能
                 {
                     /* 发送按钮按下的消息 */
-                    key_in_fifo((e_keys_status)(3 * key_id + 1));   //存入按键按下事件
+                    key_in_fifo((e_keys_status)(KEY_STATUS * key_id + 1));   //存入按键按下事件
                 }
                 if(p_key->short_key_down)   //如果注册了回调函数 则执行
                 {
@@ -226,7 +231,7 @@ static void detect_key(e_keys_id key_id)
                         if(p_key->report_flag&KEY_REPORT_LONG)
                         {
                             /* 键值放入按键FIFO */
-                            key_in_fifo((e_keys_status)(3 * key_id + 3));  //存入长按事件
+                            key_in_fifo((e_keys_status)(KEY_STATUS * key_id + 3));  //存入长按事件
                         }
                         if(p_key->long_key_down)        //如果定义了回调函数
                         {
@@ -242,7 +247,7 @@ static void detect_key(e_keys_id key_id)
 						{
 							p_key->repeat_count = 0;
 							/*长按按键后，每隔repeat_speed发送1个按键 */
-							key_in_fifo((e_keys_status)(3 * key_id + 1));
+							key_in_fifo((e_keys_status)(KEY_STATUS * key_id + 1));
 						}
 					}
 				}
@@ -270,13 +275,34 @@ static void detect_key(e_keys_id key_id)
                  if(p_key->report_flag&KEY_REPORT_UP)
                  {
                     /* 发送按钮弹起的消息 */
-                    key_in_fifo((e_keys_status)(3 * key_id + 2));                   
+                    key_in_fifo((e_keys_status)(KEY_STATUS * key_id + 2));                   
                  }
-                if(p_key->short_key_up)
+                if(p_key->short_key_up) //如果定义了回调函数
                 {
                     p_key->short_key_up(p_key->sku_arg);
                 }
+                //如果满足双击要求
+                if((p_key->double_count > KEY_DOUBLE_MIN)&&(p_key->double_count < KEY_DOUBLE_MAX))
+                {
+                    p_key->double_count = 0;
+                    if(p_key->report_flag&KEY_REPORT_DOUBLE)    //如果定义的上报双击标志
+                    {
+                        key_in_fifo((e_keys_status)(KEY_STATUS * key_id + 4));  //上报双击事件
+                    }
+                    if(p_key->double_key_down)  //如果定义了回调函数
+                    {
+                        p_key->double_key_down(p_key->dkd_arg); //执行回调函数
+                    }
+                }
+                else
+                {
+                    //不满足双击要求 清零计数器
+                    p_key->double_count = 0;
+                }
+                
 			}
+            p_key->double_count++;  //双击事件计数
+            
 		}
 
 		p_key->long_count = 0;  //长按计数清零    
