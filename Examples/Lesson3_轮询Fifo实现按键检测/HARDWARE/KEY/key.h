@@ -10,7 +10,7 @@
 #define KEY1_Pin      GPIO_Pin_3
 
 
-#define KEY_TICKS         1     /* 按键循环扫描周期(ms) keyscan()函数在哪个固定扫描周期中 该值就等于多少 原则上应该是10的公约数中的值 因为按键消抖是10ms*/
+#define KEY_TICKS         10     /* 按键循环扫描周期(ms) keyscan()函数在哪个固定扫描周期中 该值就等于多少 原则上应该是10的公约数中的值 因为按键消抖是10ms*/
 
 #define LIFT    (0)            /* 按键抬起 */
 #define PRESS   (1)         /* 按键按下 */
@@ -31,6 +31,7 @@
 #define KEY_REPORT_UP           (1<<1)  //上报按键抬起事件
 #define KEY_REPORT_LONG       (1<<2)   //上报长按事件
 #define KEY_REPORT_DOUBLE   (1<<3)  //上报双击事件
+#define KEY_REPORT_REPEAT    (1<<4) //上报连发事件
 
 //定义按键事件
 typedef enum _e_keys_status
@@ -88,6 +89,24 @@ typedef enum _e_keys_status
     KEY_10_DOUBLE,             /* 10键双击*/
 } e_keys_status;
 
+//按键状态机
+typedef enum _e_key_state
+{
+    KEY_NULL,   //无按键按下
+    KEY_DOWN,
+    KEY_DOWN_RECHECK,
+    KEY_UP,
+    KEY_UP_RECHECK,
+    KEY_LONG,
+    KEY_REPEAT,
+    
+}e_key_state;
+
+
+
+
+
+
 /* 按键ID 只有注册了按键ID 才可以操作按键*/
 typedef enum _e_keys_id
 {
@@ -113,7 +132,9 @@ typedef struct _t_keys
     void *lkd_arg;                                            //长按事件回调函数参数
     void (*double_key_down)(void *dkd_arg);  //双击按下回调函数
     void * dkd_arg;                                          //双击事件回调函数参数
-
+    void (*repeat_key_down)(void *rkd_arg);    //连发事件回调
+    void *rkd_arg;                                            //连发事件回调函数参数
+    
     uint8_t  count;			    /* 滤波器计数器 */
     uint16_t long_count;		/* 长按计数器 */
     uint16_t long_time;		/* 按键按下持续时间, 0表示不检测长按 */
@@ -123,6 +144,10 @@ typedef struct _t_keys
 
     uint16_t double_count;   /* 双击计数器*/
     uint8_t report_flag;       /* 上报事件标志*/
+    
+    e_key_state key_state ; /* 按键状态机*/
+    uint8_t prev_key_state; /* 上一次按键的状态 */
+    
 
 } t_keys;
 

@@ -32,7 +32,7 @@ int main(void)
     delay_init(168);		  //初始化延时函数
     LED_Init();		        //初始化LED端口
     keys_init();                 //初始化按键
-    TIM3_Int_Init(1000, 84-1);    //1ms 定时
+    TIM3_Int_Init(10000, 84-1);    //1ms 定时
     keys[KEY1_ID].short_key_down = led2_on;   //注册回调函数
     keys[KEY1_ID].short_key_up = led2_off;
     keys[KEY1_ID].long_key_down = led3_on;

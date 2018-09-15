@@ -869,11 +869,11 @@ ARM Macro Assembler    Page 14
               00000000 
 Command Line: --debug --xref --diag_suppress=9931 --cpu=Cortex-M4.fp --apcs=int
 erwork --depend=..\obj\startup_stm32f40_41xxx.d -o..\obj\startup_stm32f40_41xxx
-.o -IC:\Users\youyou\Desktop\github\MCUKeys\Lesson3_轮询Fifo实现按键检测\USER\R
-TE -IC:\Keil_v5\ARM\PACK\Keil\STM32F4xx_DFP\2.7.0 -IC:\Keil_v5\ARM\CMSIS\Includ
-e -IC:\Keil_v5\ARM\PACK\Keil\STM32F4xx_DFP\2.7.0\Device\Include --predefine="__
-UVISION_VERSION SETA 514" --predefine="STM32F407xx SETA 1" --list=..\obj\startu
-p_stm32f40_41xxx.lst ..\CORE\startup_stm32f40_41xxx.s
+.o -IC:\Users\youyou\Desktop\github\MCUKeys\Examples\Lesson3_轮询Fifo实现按键检
+测\USER\RTE -IC:\Keil_v5\ARM\PACK\Keil\STM32F4xx_DFP\2.7.0 -IC:\Keil_v5\ARM\CMS
+IS\Include -IC:\Keil_v5\ARM\PACK\Keil\STM32F4xx_DFP\2.7.0\Device\Include --pred
+efine="__UVISION_VERSION SETA 514" --predefine="STM32F407xx SETA 1" --list=..\o
+bj\startup_stm32f40_41xxx.lst ..\CORE\startup_stm32f40_41xxx.s
 
 
 
