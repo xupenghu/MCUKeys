@@ -7,7 +7,7 @@
 //KEY1 配置
 #define KEY1_RCC    RCC_AHB1Periph_GPIOB
 #define KEY1_GPIO   GPIOB
-#define KEY1_Pin      GPIO_Pin_3
+#define KEY1_Pin    GPIO_Pin_3
 
 
 #define KEY_TICKS         10     /* 按键循环扫描周期(ms) keyscan()函数在哪个固定扫描周期中 该值就等于多少 原则上应该是10的公约数中的值 因为按键消抖是10ms*/
@@ -28,10 +28,10 @@
 
 //上报事件标志
 #define KEY_REPORT_DOWN     (1<<0)  //上报按键按下事件
-#define KEY_REPORT_UP           (1<<1)  //上报按键抬起事件
-#define KEY_REPORT_LONG       (1<<2)   //上报长按事件
+#define KEY_REPORT_UP       (1<<1)  //上报按键抬起事件
+#define KEY_REPORT_LONG     (1<<2)   //上报长按事件
 #define KEY_REPORT_DOUBLE   (1<<3)  //上报双击事件
-#define KEY_REPORT_REPEAT    (1<<4) //上报连发事件
+#define KEY_REPORT_REPEAT   (1<<4)  //上报连发事件
 
 //定义按键事件
 typedef enum _e_keys_status

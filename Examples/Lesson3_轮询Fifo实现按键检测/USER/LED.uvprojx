@@ -363,9 +363,9 @@
             <useXO>0</useXO>
             <VariousControls>
               <MiscControls></MiscControls>
-              <Define>STM32F40_41xxx,USE_STDPERIPH_DRIVER</Define>
+              <Define>STM32F40_41xxx,USE_STDPERIPH_DRIVER,USE_USB_OTG_FS</Define>
               <Undefine></Undefine>
-              <IncludePath>..\CORE;..\SYSTEM\delay;..\SYSTEM\sys;..\SYSTEM\usart;..\USER;..\HARDWARE\LED;..\FWLIB\inc;..\HARDWARE\OLED;..\HARDWARE\IIC;..\HARDWARE\KEY;..\HARDWARE\EXTI;..\HARDWARE\TIMER</IncludePath>
+              <IncludePath>..\CORE;..\SYSTEM\delay;..\SYSTEM\sys;..\SYSTEM\usart;..\USER;..\HARDWARE\LED;..\FWLIB\inc;..\HARDWARE\OLED;..\HARDWARE\IIC;..\HARDWARE\KEY;..\HARDWARE\EXTI;..\HARDWARE\TIMER;..\FWLIB\STM32_USB_Device_Library\Core\inc;..\FWLIB\STM32_USB_Device_Library\Class\cdc\inc;..\FWLIB\STM32_USB_HOST_Library\Core\inc;..\FWLIB\STM32_USB_OTG_Driver\inc;.\usbd_cdc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -532,13 +532,6 @@
         </Group>
         <Group>
           <GroupName>README</GroupName>
-          <Files>
-            <File>
-              <FileName>readme.txt</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\readme.txt</FilePath>
-            </File>
-          </Files>
         </Group>
       </Groups>
     </Target>
