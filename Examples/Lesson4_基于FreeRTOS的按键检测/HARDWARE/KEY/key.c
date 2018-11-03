@@ -368,13 +368,13 @@ int keys_init(void)
                    KEY_TICKS,   
                    /*是否自动重载， 此处设置周期性执行*/
                    pdTRUE,
-                   /*记录定时器溢出次数， 初始化零, 用户自己设置*/
+                   /*记录定时器ID号， 初始化零, 用户自己设置*/
                   ( void * ) 0,
                    /*回调函数*/
                   vMCUKeysTimerCallback);
 
      if( xTimerKeys != NULL ) {
-        // 启动定时器， 0 表示不阻塞
+        // 启动定时器， 0 表示不等待
         xTimerStart( xTimerKeys, 0 );
     }
      else

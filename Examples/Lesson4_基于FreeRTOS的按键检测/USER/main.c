@@ -6,6 +6,7 @@
 #include "oled.h" 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "key.h"
 
 //任务优先级
 #define START_TASK_PRIO		1
@@ -17,7 +18,7 @@ TaskHandle_t StartTask_Handler;
 void start_task(void *pvParameters);
 
 //任务优先级
-#define LED0_TASK_PRIO		2
+#define LED0_TASK_PRIO		12
 //任务堆栈大小	
 #define LED0_STK_SIZE 		50  
 //任务句柄
@@ -26,7 +27,7 @@ TaskHandle_t LED0Task_Handler;
 void led0_task(void *pvParameters);
 
 //任务优先级
-#define OLEDRefreshGramTask_PRIO		3
+#define OLEDRefreshGramTask_PRIO		1
 //任务堆栈大小	
 #define OLEDRefreshGramTask_STK_SIZE 		256  
 //任务句柄
@@ -41,8 +42,9 @@ int main(void)
 	LED_Init();		        //初始化LED端口
 	OLED_Init();			//初始化OLED  
 	OLED_Clear();
-	OLED_ShowString(0,0,"MCUKeys with FreeRTOS",16);
-
+    
+    OLED_ShowString(0,0,"  MCUKeys with  ",16);
+    OLED_ShowString(0,16,"    FreeRTOS    ",16);
 	//创建开始任务
     xTaskCreate((TaskFunction_t )start_task,            //任务函数
                 (const char*    )"start_task",          //任务名称
@@ -83,10 +85,12 @@ void start_task(void *pvParameters)
 //LED0任务函数 
 void led0_task(void *pvParameters)
 {
+    keys_init();
     while(1)
     {
         LED3=~LED3;
         vTaskDelay(100);
+       
     }
 }   
 
@@ -95,7 +99,7 @@ void OLEDRefreshGramTask(void *pvParameters)
 {
 
     static portTickType xLastWakeTime;  
-    const portTickType xFrequency = pdMS_TO_TICKS(20);  //50Hz刷新率
+    const portTickType xFrequency = pdMS_TO_TICKS(80);  //50Hz刷新率
    
     // 使用当前时间初始化变量xLastWakeTime ,注意这和vTaskDelay()函数不同 
     xLastWakeTime = xTaskGetTickCount();

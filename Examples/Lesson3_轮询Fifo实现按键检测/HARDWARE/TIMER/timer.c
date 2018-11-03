@@ -32,13 +32,13 @@ void TIM3_Int_Init(u16 arr,u16 psc)
 
 }
 
-//定时器3中断服务函数
+//定时器3中断服务函数 KEY_TICKS周期中断一次
 void TIM3_IRQHandler(void)
 {
 
     if(TIM_GetITStatus(TIM3,TIM_IT_Update)==SET) //溢出中断
     {
-        key_scan();
+        key_scan();  //按键扫描函数
     }
     TIM_ClearITPendingBit(TIM3,TIM_IT_Update);  //清除中断标志位
 }

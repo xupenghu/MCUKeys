@@ -11,7 +11,7 @@
 #define KEY1_Pin      GPIO_Pin_3
 
 
-#define KEY_TICKS         (1000/configTICK_RATE_HZ)     /* 按键循环扫描周期(ms) keyscan()函数在哪个固定扫描周期中 该值就等于多少 原则上应该是10的公约数中的值 因为按键消抖是10ms*/
+#define KEY_TICKS         (5)     /* 按键循环扫描周期(ms) keyscan()函数在哪个固定扫描周期中 该值就等于多少 原则上应该是10的公约数中的值 因为按键消抖是10ms*/
 
 #define LIFT    (0)            /* 按键抬起 */
 #define PRESS   (1)         /* 按键按下 */
