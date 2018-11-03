@@ -1,7 +1,7 @@
 # MCUKeys
 
 ## 1  简介
-MCUKeys是一个简洁小巧可配置的、灵活的、通用的的按键检测程序，截至到目前为止它可以检测如下输入事件：
+MCUKeys完全使用C语言编写，是一个简洁小巧可配置的、灵活的、通用的的按键检测程序，截至到目前为止它可以检测如下输入事件：
 
 1. 按键按下
 2. 按键抬起
@@ -105,4 +105,8 @@ MCUKeys提供完整的中文注释。同时，提供如下的例程供大家参�
 1. [Lesson1_轮询实现按键检测](https://github.com/xupenghu/MCUKeys/tree/master/Examples/Lesson1_%E8%BD%AE%E8%AF%A2%E5%AE%9E%E7%8E%B0%E6%8C%89%E9%94%AE%E6%A3%80%E6%B5%8B)
 2. [Lesson2_中断实现按键检测](https://github.com/xupenghu/MCUKeys/tree/master/Examples/Lesson2_%E4%B8%AD%E6%96%AD%E5%AE%9E%E7%8E%B0%E6%8C%89%E9%94%AE%E6%A3%80%E6%B5%8B)
 3. [Lesson3_轮询Fifo实现按键检测](https://github.com/xupenghu/MCUKeys/tree/master/Examples/Lesson3_%E8%BD%AE%E8%AF%A2Fifo%E5%AE%9E%E7%8E%B0%E6%8C%89%E9%94%AE%E6%A3%80%E6%B5%8B)
-4. [Lesson4_基于FreeRTOS的按键检测](https://github.com/xupenghu/MCUKeys/tree/master/Examples/Lesson3_%E8%BD%AE%E8%AF%A2Fifo%E5%AE%9E%E7%8E%B0%E6%8C%89%E9%94%AE%E6%A3%80%E6%B5%8B)
+4. [Lesson4_基于FreeRTOS的按键检测](https://github.com/xupenghu/MCUKeys/tree/master/Examples/Lesson4_%E5%9F%BA%E4%BA%8EFreeRTOS%E7%9A%84%E6%8C%89%E9%94%AE%E6%A3%80%E6%B5%8B)
+
+联系作者：xupenghu@outlook.com
+
+
