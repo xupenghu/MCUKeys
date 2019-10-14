@@ -1,20 +1,36 @@
 #ifndef _KEY__H
 #define _KEY__H
 
-#include "sys.h"
-#include "stdlib.h"
+/* 包含头文件 ----------------------------------------------------------------*/
+#include "stm8s.h"
+
+#ifndef NULL
+#define NULL ((void *)0)
+#endif
+
+//使用状态机模式
+#define USE_KEY_STATE_MACHINE
 
 //KEY1 配置
-#define KEY1_RCC    RCC_AHB1Periph_GPIOB
-#define KEY1_GPIO   GPIOB
-#define KEY1_Pin      GPIO_Pin_3
+#define KEY1_GPIO_PORT	(GPIOC)
+#define KEY1_GPIO_PINS	(GPIO_PIN_4)
+
+#define KEY2_GPIO_PORT	(GPIOC)
+#define KEY2_GPIO_PINS	(GPIO_PIN_3)
+
+#define KEY3_GPIO_PORT	(GPIOA)
+#define KEY3_GPIO_PINS	(GPIO_PIN_1)
+
+#define KEY4_GPIO_PORT	(GPIOA)
+#define KEY4_GPIO_PINS	(GPIO_PIN_2)
 
 
-#define KEY_TICKS         1     /* 按键循环扫描周期(ms) keyscan()函数在哪个固定扫描周期中 该值就等于多少 原则上应该是10的公约数中的值 因为按键消抖是10ms*/
+
+#define KEY_TICKS         5     /* 按键循环扫描周期(ms) keyscan()函数在哪个固定扫描周期中 该值就等于多少 原则上应该是10的公约数中的值 因为按键消抖是10ms*/
 
 #define LIFT    (0)            /* 按键抬起 */
 #define PRESS   (1)         /* 按键按下 */
-#define KEY_COUNT    1	   					/* 按键个数 */
+#define KEY_COUNT    	4	   					/* 按键个数 */
 #define KEY_STATUS      4                   /* 支持的按键事件   目前支持4种 按键按下、抬起、双击、长按*/
 
 #define KEY_FILTER_TIME          10               // 按键消抖时间 10ms
@@ -28,9 +44,10 @@
 
 //上报事件标志
 #define KEY_REPORT_DOWN     (1<<0)  //上报按键按下事件
-#define KEY_REPORT_UP           (1<<1)  //上报按键抬起事件
-#define KEY_REPORT_LONG       (1<<2)   //上报长按事件
+#define KEY_REPORT_UP       (1<<1)  //上报按键抬起事件
+#define KEY_REPORT_LONG     (1<<2)   //上报长按事件
 #define KEY_REPORT_DOUBLE   (1<<3)  //上报双击事件
+#define KEY_REPORT_REPEAT   (1<<4)  //上报连发事件
 
 //定义按键事件
 typedef enum _e_keys_status
@@ -93,18 +110,41 @@ typedef enum _e_keys_id
 {
     KEY1_ID = 0,
     // 其他按键ID定义
-
-
+	KEY2_ID,
+	KEY3_ID,
+	KEY4_ID,
     KEY_ID_MAX,
 } e_keys_id;
 
+#ifdef USE_KEY_STATE_MACHINE
+//按键状态机
+typedef enum _e_key_state
+{
+    KEY_NULL,   //无按键按下
+    KEY_DOWN,
+    KEY_DOWN_RECHECK,
+    KEY_UP,
+    KEY_UP_RECHECK,
+    KEY_LONG,
+    KEY_REPEAT,
+    
+}e_key_state;
 
+#endif
+
+//硬件描述符
+struct _keys_hw_desc_t
+{
+	GPIO_TypeDef* GPIOx;
+	GPIO_Pin_TypeDef GPIO_Pin;
+	GPIO_Mode_TypeDef GPIO_Mode;
+};
 
 //按键结构体
 typedef struct _t_keys
 {
     /* 函数指针*/
-    uint8_t (*get_key_status)(void);    /* 按键按下的判断函数,1表示按下 */
+    uint8_t (*get_key_status)(e_keys_id key_id);    /* 按键按下的判断函数,1表示按下 */
     void (*short_key_down)(void * skd_arg);     //按键短按下回调函数
     void * skd_arg;                                           //按键短按下回调函数传入的参数
     void(*short_key_up)(void * sku_arg);          //按键短按抬起回调函数
@@ -113,6 +153,8 @@ typedef struct _t_keys
     void *lkd_arg;                                            //长按事件回调函数参数
     void (*double_key_down)(void *dkd_arg);  //双击按下回调函数
     void * dkd_arg;                                          //双击事件回调函数参数
+    void (*repeat_key_down)(void *rkd_arg);    //连发事件回调
+    void *rkd_arg;                                            //连发事件回调函数参数
 
     uint8_t  count;			    /* 滤波器计数器 */
     uint16_t long_count;		/* 长按计数器 */
@@ -123,7 +165,10 @@ typedef struct _t_keys
 
     uint16_t double_count;   /* 双击计数器*/
     uint8_t report_flag;       /* 上报事件标志*/
-
+#ifdef USE_KEY_STATE_MACHINE	
+    e_key_state key_state ; /* 按键状态机*/
+    uint8_t prev_key_state; /* 上一次按键的状态 */
+#endif
 } t_keys;
 
 extern t_keys keys[KEY_ID_MAX];

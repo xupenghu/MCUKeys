@@ -1,11 +1,21 @@
 #include "key.h"
-#include "sys.h"
 #include "delay.h"
 
 /*******************全局变量定义***********************/
 t_keys_fifo keys_fifo;       //按键缓冲FIFO
 
 t_keys keys[KEY_ID_MAX];
+
+struct _keys_hw_desc_t keys_hw_desc[KEY_ID_MAX]  = 
+{
+	{KEY1_GPIO_PORT, KEY1_GPIO_PINS, GPIO_MODE_IN_PU_NO_IT},
+	{KEY2_GPIO_PORT, KEY2_GPIO_PINS, GPIO_MODE_IN_PU_NO_IT},
+	{KEY3_GPIO_PORT, KEY3_GPIO_PINS, GPIO_MODE_IN_PU_NO_IT},
+	{KEY4_GPIO_PORT, KEY4_GPIO_PINS, GPIO_MODE_IN_PU_NO_IT},
+
+};
+
+
 
 
 /**********************************函数实现********************************************/
@@ -17,9 +27,9 @@ t_keys keys[KEY_ID_MAX];
 * 返 回 值：   按键按下返回1 否则返回0
 * 函数说明： 按键按下返回PRESS 否则返回LIFT
 ****************************************************************************/
-static uint8_t get_key1_state(void)
+static uint8_t get_key_state_hw(e_keys_id key_id)
 {
-    uint8_t res  = GPIO_ReadInputDataBit(KEY1_GPIO, KEY1_Pin);  //和平台移植相关
+    uint8_t res  = GPIO_ReadInputPin(keys_hw_desc[key_id].GPIOx, keys_hw_desc[key_id].GPIO_Pin);  //和平台移植相关
     if(res == 0)
     {
         return PRESS;   //按键按下
@@ -129,15 +139,10 @@ void clear_keys_fifo(void)
 static void keys_hardware_init(void)
 {
 
-    GPIO_InitTypeDef  GPIO_InitStructure;
-
-    RCC_AHB1PeriphClockCmd(KEY1_RCC, ENABLE);//使能GPIO时钟
-
-    GPIO_InitStructure.GPIO_Pin = KEY1_Pin;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;  //输入
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;//100MHz
-    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;//上拉
-    GPIO_Init(KEY1_GPIO, &GPIO_InitStructure);//初始化GPIO
+	GPIO_Init(KEY1_GPIO_PORT, (GPIO_Pin_TypeDef)KEY1_GPIO_PINS, GPIO_MODE_IN_PU_NO_IT);
+	GPIO_Init(KEY2_GPIO_PORT, (GPIO_Pin_TypeDef)KEY2_GPIO_PINS, GPIO_MODE_IN_PU_NO_IT);
+	GPIO_Init(KEY3_GPIO_PORT, (GPIO_Pin_TypeDef)KEY3_GPIO_PINS, GPIO_MODE_IN_PU_NO_IT);
+	GPIO_Init(KEY4_GPIO_PORT, (GPIO_Pin_TypeDef)KEY4_GPIO_PINS, GPIO_MODE_IN_PU_NO_IT);
 
 }
 
@@ -175,14 +180,18 @@ static void keys_value_init(void)
         keys[i].lkd_arg = NULL;                      /* 按键长按回调函数参数*/
         keys[i].double_key_down = NULL;
         keys[i].dkd_arg = NULL;
+		keys[i].repeat_key_down = NULL;
+		keys[i].rkd_arg = NULL;
+        keys[i].get_key_status = get_key_state_hw;    /* 获取按键状态函数绑定 这个和平台有关*/
 
-        keys[i].get_key_status = get_key1_state;    /* 获取按键状态函数绑定 这个和平台有关*/
-
-        keys[i].report_flag = KEY_REPORT_DOWN | KEY_REPORT_UP | KEY_REPORT_LONG | KEY_REPORT_DOUBLE;
+        keys[i].report_flag = KEY_REPORT_DOWN | KEY_REPORT_UP ; /*希望上报的按键事件*/
 
     }
 
 }
+
+
+
 
 /***********************************************************************
 * 函数名称： detect_key
@@ -193,10 +202,154 @@ static void keys_value_init(void)
 ****************************************************************************/
 static void detect_key(e_keys_id key_id)
 {
+#ifdef	USE_KEY_STATE_MACHINE
+	 t_keys *p_key;
+	 uint8_t current_key_state;  //当前按键状态
+	 p_key = &keys[key_id];  //获取按键事件结构体
+	 current_key_state = p_key->get_key_status(key_id);    //获取按键状态
+	switch(p_key->key_state)
+	{
+		case KEY_NULL:
+		{
+			//如果按键按下
+			if(current_key_state == PRESS)
+			{
+				 p_key->key_state = KEY_DOWN;
+			}
+			 p_key->double_count += KEY_TICKS ;  //双击事件计数
+			 break;
+		}
+		case KEY_DOWN:
+		{
+			//如果状态还在保持
+			if(current_key_state == p_key->prev_key_state)
+			{
+				 p_key->key_state = KEY_DOWN_RECHECK;
+				 if(p_key->report_flag&KEY_REPORT_DOWN)  //如果定义了按键按下上报功能
+				 {
+					 /* 发送按钮按下的消息 */
+					 key_in_fifo((e_keys_status)(KEY_STATUS * key_id + 1));   //存入按键按下事件
+				 }
+				 if(p_key->short_key_down)	 //如果注册了回调函数 则执行
+				 {
+					 p_key->short_key_down(p_key->skd_arg);
+				 }		  
+				 
+			}
+			else
+			{
+				 p_key->key_state = KEY_NULL;
+			}
+			 break;
+		}
+		//长按和连发和按键抬起判断
+		case KEY_DOWN_RECHECK:
+		{
+			//按键还在保持按下状态
+			if(current_key_state == p_key->prev_key_state)
+			{
+				if(p_key->long_time > 0)
+				{
+					 if((p_key->long_count += KEY_TICKS) == p_key->long_time) 
+					 {
+						  if(p_key->report_flag&KEY_REPORT_LONG)
+						 {
+							 /* 键值放入按键FIFO */
+							 key_in_fifo((e_keys_status)(KEY_STATUS * key_id + 3));  //存入长按事件
+						 }
+						 if(p_key->long_key_down)		 //如果定义了回调函数
+						 {
+							 p_key->long_key_down(p_key->lkd_arg);	 //执行回调函数
+						 }						 
+					 }
+					 else
+					 {
+						 if(p_key->repeat_speed > 0)
+						 {
+							 if ((p_key->repeat_count  += KEY_TICKS) >= p_key->repeat_speed)
+							 {
+								 p_key->repeat_count = 0;
+								 if(p_key->report_flag&KEY_REPORT_REPEAT)  //如果定义的连发上报
+								 {
+									 /*长按按键后，每隔repeat_speed发送1个按键 */
+									 key_in_fifo((e_keys_status)(KEY_STATUS * key_id + 1));
+								 }
+								 if(p_key->repeat_key_down)  //如果定义了连发回调函数
+								 {
+									 //执行连发回调函数
+									 p_key->repeat_key_down(p_key->rkd_arg);
+								 }
+							 }							  
+						 }
+					 }
+				}
+			}
+			else
+			{	 
+				//按键已经抬起
+				 p_key->key_state = KEY_UP;
+			}
+			 break;
+		}
+		case KEY_UP:
+		{
+			if(current_key_state == p_key->prev_key_state)
+			{
+				 p_key->key_state = KEY_UP_RECHECK;
+				 p_key->long_count = 0;  //长按计数清零
+				 p_key->repeat_count = 0;  //重复发送计数清零
+				 if(p_key->report_flag&KEY_REPORT_UP)
+				 {
+					 /* 发送按钮弹起的消息 */
+					 key_in_fifo((e_keys_status)(KEY_STATUS * key_id + 2));
+				 }
+				 if(p_key->short_key_up) //如果定义了回调函数
+				 {
+					 p_key->short_key_up(p_key->sku_arg);
+				 }				 
+			}
+			else
+			{
+				 p_key->key_state = KEY_DOWN_RECHECK;
+			}
+			 break;
+		}
+		case KEY_UP_RECHECK:
+		{
+			 //如果满足双击要求
+			 if((p_key->double_count > KEY_DOUBLE_MIN)&&(p_key->double_count < KEY_DOUBLE_MAX))
+			 {
+				 p_key->double_count = 0;
+				 if(p_key->report_flag&KEY_REPORT_DOUBLE)	 //如果定义的上报双击标志
+				 {
+					 key_in_fifo((e_keys_status)(KEY_STATUS * key_id + 4));  //上报双击事件
+				 }
+				 if(p_key->double_key_down)  //如果定义了回调函数
+				 {
+					 p_key->double_key_down(p_key->dkd_arg); //执行回调函数
+				 }
+			 }
+			 else
+			 {
+				 //不满足双击要求 清零计数器
+				 p_key->double_count = 0;
+			 }			 
+			 p_key->key_state = KEY_NULL;
+		}
+		default:
+		{
+			 break;
+		}
+	}
+	p_key->prev_key_state = current_key_state;
+ 
+
+#else // #ifdef USE_KEY_STATE_MACHINE
+
     t_keys *p_key;
 
     p_key = &keys[key_id];  //获取按键事件结构体
-    if (p_key->get_key_status() == PRESS)  //如果按键已经被按下
+    if (p_key->get_key_status(key_id) == PRESS)  //如果按键已经被按下
     {
         if (p_key->count < KEY_FILTER_TIME)
         {
@@ -310,160 +463,9 @@ static void detect_key(e_keys_id key_id)
         p_key->long_count = 0;  //长按计数清零
         p_key->repeat_count = 0;  //重复发送计数清零
     }
+#endif
 }
 
-/***********************************************************************
-* 函数名称： detect_key_with_state
-* 函数功能： 检测一个按键的状态并将状态值放入FIFO中（状态机实现）
-* 输入参数：  key_id[IN] : 按键ID
-* 返 回  值：  无
-* 函数说明：  应该放在一个KEY_TICKS的周期函数中,在key_sacn()函数中调用
-****************************************************************************/
-
-static void detect_key_with_state(e_keys_id key_id)
-{
-    t_keys *p_key;
-    uint8_t current_key_state;  //当前按键状态
-    p_key = &keys[key_id];  //获取按键事件结构体
-    current_key_state = p_key->get_key_status();    //获取按键状态
-   switch(p_key->key_state)
-   {
-       case KEY_NULL:
-       {
-           //如果按键按下
-           if(current_key_state == PRESS)
-           {
-                p_key->key_state = KEY_DOWN;
-           }
-            p_key->double_count += KEY_TICKS ;  //双击事件计数
-            break;
-       }
-       case KEY_DOWN:
-       {
-           //如果状态还在保持
-           if(current_key_state == p_key->prev_key_state)
-           {
-                p_key->key_state = KEY_DOWN_RECHECK;
-                if(p_key->report_flag&KEY_REPORT_DOWN)  //如果定义了按键按下上报功能
-                {
-                    /* 发送按钮按下的消息 */
-                    key_in_fifo((e_keys_status)(KEY_STATUS * key_id + 1));   //存入按键按下事件
-                }
-                if(p_key->short_key_down)   //如果注册了回调函数 则执行
-                {
-                    p_key->short_key_down(p_key->skd_arg);
-                }        
-                
-           }
-           else
-           {
-                p_key->key_state = KEY_NULL;
-           }
-            break;
-       }
-       //长按和连发和按键抬起判断
-       case KEY_DOWN_RECHECK:
-       {
-           //按键还在保持按下状态
-           if(current_key_state == p_key->prev_key_state)
-           {
-               if(p_key->long_time > 0)
-               {
-                    if((p_key->long_count += KEY_TICKS) == p_key->long_time) 
-                    {
-                         if(p_key->report_flag&KEY_REPORT_LONG)
-                        {
-                            /* 键值放入按键FIFO */
-                            key_in_fifo((e_keys_status)(KEY_STATUS * key_id + 3));  //存入长按事件
-                        }
-                        if(p_key->long_key_down)        //如果定义了回调函数
-                        {
-                            p_key->long_key_down(p_key->lkd_arg);   //执行回调函数
-                        }                       
-                    }
-                    else
-                    {
-                        if(p_key->repeat_speed > 0)
-                        {
-                            if ((p_key->repeat_count  += KEY_TICKS) >= p_key->repeat_speed)
-                            {
-                                p_key->repeat_count = 0;
-                                if(p_key->report_flag&KEY_REPORT_REPEAT)  //如果定义的连发上报
-                                {
-                                    /*长按按键后，每隔repeat_speed发送1个按键 */
-                                    key_in_fifo((e_keys_status)(KEY_STATUS * key_id + 1));
-                                }
-                                if(p_key->repeat_key_down)  //如果定义了连发回调函数
-                                {
-                                    //执行连发回调函数
-                                    p_key->repeat_key_down(p_key->rkd_arg);
-                                }
-                            }                            
-                        }
-                    }
-               }
-           }
-           else
-           {    
-               //按键已经抬起
-                p_key->key_state = KEY_UP;
-           }
-            break;
-       }
-       case KEY_UP:
-       {
-           if(current_key_state == p_key->prev_key_state)
-           {
-                p_key->key_state = KEY_UP_RECHECK;
-                p_key->long_count = 0;  //长按计数清零
-                p_key->repeat_count = 0;  //重复发送计数清零
-                if(p_key->report_flag&KEY_REPORT_UP)
-                {
-                    /* 发送按钮弹起的消息 */
-                    key_in_fifo((e_keys_status)(KEY_STATUS * key_id + 2));
-                }
-                if(p_key->short_key_up) //如果定义了回调函数
-                {
-                    p_key->short_key_up(p_key->sku_arg);
-                }               
-           }
-           else
-           {
-                p_key->key_state = KEY_DOWN_RECHECK;
-           }
-            break;
-       }
-       case KEY_UP_RECHECK:
-       {
-            //如果满足双击要求
-            if((p_key->double_count > KEY_DOUBLE_MIN)&&(p_key->double_count < KEY_DOUBLE_MAX))
-            {
-                p_key->double_count = 0;
-                if(p_key->report_flag&KEY_REPORT_DOUBLE)    //如果定义的上报双击标志
-                {
-                    key_in_fifo((e_keys_status)(KEY_STATUS * key_id + 4));  //上报双击事件
-                }
-                if(p_key->double_key_down)  //如果定义了回调函数
-                {
-                    p_key->double_key_down(p_key->dkd_arg); //执行回调函数
-                }
-            }
-            else
-            {
-                //不满足双击要求 清零计数器
-                p_key->double_count = 0;
-            }           
-            p_key->key_state = KEY_NULL;
-       }
-       default:
-       {
-            break;
-       }
-   }
-   p_key->prev_key_state = current_key_state;
-    
-    
-}
 
 
 /***********************************************************************
@@ -479,7 +481,7 @@ void key_scan(void)
 
     for (i = 0; i < KEY_ID_MAX; i++)
     {
-        detect_key(i);
+        detect_key((e_keys_id)i);
     }
 }
 
@@ -493,8 +495,9 @@ void key_scan(void)
 ****************************************************************************/
 void keys_init(void)
 {
-    keys_value_init();		        /* 初始化按键变量 */
     keys_hardware_init();		/* 初始化按键硬件 */
+    keys_value_init();		        /* 初始化按键变量 */
+
 }
 
 
