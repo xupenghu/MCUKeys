@@ -1,112 +1,263 @@
+
 # MCUKeys
 
 ## 1  简介
-MCUKeys完全使用C语言编写，是一个简洁小巧可配置的、灵活的、通用的的按键检测程序，截至到目前为止它可以检测如下输入事件：
+MCUKeys完全使用C语言编写，是一个简洁小巧可配置的、灵活的、通用的的按键检测程序，全部源码都使用中文注释，方便阅读。有基于按键事件回调和按键缓冲区两种方式解决按键事件。截至到目前为止它可以检测如下输入事件：
 
-1. 按键按下
-2. 按键抬起
-3.  长按(时间可配置)
-4.  连击(时间可配置)
-5. 双击
-6. 组合按键（可以实现以上五种状态）
+-  按键按下
+-  按键抬起
+-   长按(时间可配置)
+-  连击(时间可配置)
+-  双击(时间可配置)
+-  组合按键（可以实现以上五种状态）
 
 同时，所有的事件都支持注册回调函数，在事件发生时执行。如果当前系统希望只检测按键按下事件，则可以屏蔽其他所有事件，对于其他按键事件亦然。
 
 
 ## 2  使用方法
 
-1. 先定义一个变量用于获取按键状态
+### 2.1 先定义一个按键，如果是多个按键可以用数组来实现
 
-```
-e_keys_status key_value = KEY_NONE;
-```
-2. 初始化按键，包括硬件IO配置和软件变量初始化两部分
-
-```
-keys_init();                 //初始化按键
-```
-3. 如果有需要回调函数，则注册，不需要可跳过，默认不支持回调函数
-
-```
-    keys[KEY1_ID].short_key_down = led2_on;   //注册回调函数
-    keys[KEY1_ID].short_key_up = led2_off;
-    keys[KEY1_ID].long_key_down = led3_on;
-...
-```
-4. 设置一个周期性可调用的函数来调用按键扫描函数
-
-```
-//定时器3中断服务函数 KEY_TICKS周期中断一次
-void TIM3_IRQHandler(void)
+```c
+enum
 {
+    KEY_ID_UP = 0,
+    KEY_ID_DOWN,
+    KEY_ID_LEFT,
+    KEY_ID_RIGHT,
+    KEY_ID_ENTER,
+    KEY_ID_MAX,
+};
+static key my_key[KEY_ID_MAX];
+```
+**KEY_ID**是按键的唯一标识符，不可重复，可以使用enum来实现。
+### 2.2 初始化按键
 
-    if(TIM_GetITStatus(TIM3,TIM_IT_Update)==SET) //溢出中断
+```c
+    for (int i = 0; i < (KEY_ID_MAX); i++)
     {
-        key_scan();  //按键扫描函数
+        key_init(&my_key[i]);
+        my_key[i].e_key.id = i;
+        my_key[i].key_event_cb = key_event_cb; // 屏蔽这行表示不使用事件回调函数
+        my_key[i].get_key_status = get_key_state_cb;
+        key_add(&my_key[i]);
     }
-    TIM_ClearITPendingBit(TIM3,TIM_IT_Update);  //清除中断标志位
-}
 ```
-5. 在主循环中可以取出按键事件并处理
+注意：这里的**get_key_state_cb**和硬件息息相关，是唯一需要移植的地方，我这里给出一个使用stm32HAL库开发的实例。
 
-```
-	//main
-    while(1)
+```c
+
+uint8_t get_key_state_cb(const event_key e_key)
+{
+    uint8_t ret = KEY_LIFT;
+    switch (e_key.id)
     {
-        key_value = key_out_fifo();
-        if(key_value != KEY_NONE)
+    case KEY_ID_UP:
+    {
+        if (HAL_GPIO_ReadPin(GPIOD, KEY0_Pin) == GPIO_PIN_RESET)
         {
-            switch(key_value)
-            {
-            case KEY_1_DOWN:
-            {
-                //doing something
-            }
-            break;
-            case KEY_1_UP:
-            {
-                //doing something
-            }
-            break;
-            case KEY_1_LONG:
-            {
-                //doing something
-            }
-            break;
-            case KEY_1_DOUBLE:
-            {
-                 //doing something
-            }
-            default:
-            {
-
-            } break;
-            }
+            ret = KEY_PRESS;
+        }
+        else
+        {
+            ret = KEY_LIFT;
         }
     }
+    break;
+    case KEY_ID_DOWN:
+    {
+        if (HAL_GPIO_ReadPin(GPIOD, KEY1_Pin) == GPIO_PIN_RESET)
+        {
+            ret = KEY_PRESS;
+        }
+        else
+        {
+            ret = KEY_LIFT;
+        }
+    }
+    break;
+    case KEY_ID_LEFT:
+    {
+        if (HAL_GPIO_ReadPin(GPIOD, KEY2_Pin) == GPIO_PIN_RESET)
+        {
+            ret = KEY_PRESS;
+        }
+        else
+        {
+            ret = KEY_LIFT;
+        }
+    }
+    break;
+    case KEY_ID_RIGHT:
+    {
+        if (HAL_GPIO_ReadPin(GPIOD, KEY3_Pin) == GPIO_PIN_RESET)
+        {
+            ret = KEY_PRESS;
+        }
+        else
+        {
+            ret = KEY_LIFT;
+        }
+    }
+    break;
+    case KEY_ID_ENTER:
+    {
+        if (HAL_GPIO_ReadPin(GPIOB, KEY4_Pin) == GPIO_PIN_RESET)
+        {
+            ret = KEY_PRESS;
+        }
+        else
+        {
+            ret = KEY_LIFT;
+        }
+    }
+    break;
+    default:
+        break;
+    }
+    return ret;
+}
+```
+其他类型的MCU需要根据自己的硬件来做相应的修改，我这里的硬件接法是按键按下低电平，按键抬起高电平。
+### 2.3 在一个固定周期的函数中调用key_scan
+这里的固定周期可以是定时器的中断服务函数，也可以是RTOS中的一个线程，周期应该是KEY_TICKS,
+
+```c
+/* 
+ * 按键循环扫描周期(ms) key_scan()函数在哪个固定扫描周期中 该值就等于多少 一般设置为10ms
+ */
+#define KEY_TICKS 10
+```
+比如我在这里将它放在了RTOS的一个单独线程中：
+
+```c
+void keys_thread_entry(void *param)
+{
+    while (1)
+    {
+        key_scan();
+        rt_thread_mdelay(KEY_TICKS);
+    }
+}
 ```
 
+### 2.4 实现按键事件回调函数
+如果初始化的时候，挂接了按键事件回调函数，则这里必须要实现该函数，当有对应的按键事件时，会回调该函数。
 
-## 3 按键事件说明
+```c
+void key_event_cb(const event_key e_key)
+{
+    LOG_D("e_key id = %d state = %d", e_key.id, e_key.state);
+}
+```
+这里传入的参数中, e_key.id就是我们初始化时定义的按键ID，e_key.state就是按键的事件，用户可以在这里实现按键回调的具体逻辑。
+实测输出如下：
 
-事件 | 说明
----|---
-KEY_DOWN | 按键按下，每次按下都触发，可选是否上报
-KEY_UP | 按键弹起，每次松开都触发，可选是否上报
-KEY_LONG | 长按触发，key.h中的KEY_LONG_TIME配置长按时间，同时每个按键可单独配置长按时间
-KEY_REPEAT | 按下连发，key.h中的KEY_REPEAT_TIME配置连发时间，同时每个按键可单独配置连发时间
-KEY_DOUBLE | 双击按键事件，key.h中的KEY_DOUBLE_MIN/MAX调整双击灵敏度
+```c
+[D/key] e_key id = 0 state = 2
+[D/key] e_key id = 4 state = 1
+[D/key] e_key id = 4 state = 2
+[D/key] e_key id = 0 state = 1
+[D/key] e_key id = 0 state = 2
+[D/key] e_key id = 1 state = 1
+[D/key] e_key id = 1 state = 2
+[D/key] e_key id = 3 state = 1
+[D/key] e_key id = 3 state = 2
+[D/key] e_key id = 2 state = 1
+[D/key] e_key id = 2 state = 2
+[D/key] e_key id = 4 state = 1
+[D/key] e_key id = 4 state = 2
+[D/key] e_key id = 0 state = 1
+[D/key] e_key id = 0 state = 1
+[D/key] e_key id = 0 state = 1
+[D/key] e_key id = 0 state = 1
+[D/key] e_key id = 0 state = 1
+[D/key] e_key id = 0 state = 1
+[D/key] e_key id = 0 state = 2
+[D/key] e_key id = 0 state = 1
+[D/key] e_key id = 0 state = 2
+[D/key] e_key id = 0 state = 1
+[D/key] e_key id = 0 state = 2
+[D/key] e_key id = 0 state = 1
+[D/key] e_key id = 0 state = 2
+[D/key] e_key id = 0 state = 1
+[D/key] e_key id = 0 state = 2
+[D/key] e_key id = 0 state = 1
+[D/key] e_key id = 0 state = 2
+[D/key] e_key id = 0 state = 1
+[D/key] e_key id = 0 state = 2
+[D/key] e_key id = 1 state = 1
+[D/key] e_key id = 1 state = 2
+[D/key] e_key id = 1 state = 1
+[D/key] e_key id = 1 state = 2
+[D/key] e_key id = 1 state = 4
+[D/key] e_key id = 2 state = 1
+[D/key] e_key id = 2 state = 1
+[D/key] e_key id = 2 state = 1
+[D/key] e_key id = 2 state = 1
+[D/key] e_key id = 2 state = 1
+[D/key] e_key id = 2 state = 1
+[D/key] e_key id = 2 state = 2
 
+```
 
-## 4 快速上手
+### 2.5 在main函数中轮询按键状态
+当我们不使用按键的事件回调机制时，还可以使用FIFO缓冲机制，这样就不会漏掉任何一个按键事件。
 
-MCUKeys提供完整的中文注释。同时，提供如下的例程供大家参考。相信很容易上手。
+```c
+int main(void)
+{
+  /* 必要的初始化代码...*/
+  // ....
+  event_key e_key;
+  while (1)
+  {
+    e_key = key_out_fifo();
+    if(e_key.state != KEY_NONE)
+    {
+      LOG_D( "e_key id = %d state = %d",e_key.id, e_key.state);
+    }
+    rt_thread_delay(800);
+  }
+}
 
-1. [Lesson1_轮询实现按键检测](https://github.com/xupenghu/MCUKeys/tree/master/Examples/Lesson1_%E8%BD%AE%E8%AF%A2%E5%AE%9E%E7%8E%B0%E6%8C%89%E9%94%AE%E6%A3%80%E6%B5%8B)
-2. [Lesson2_中断实现按键检测](https://github.com/xupenghu/MCUKeys/tree/master/Examples/Lesson2_%E4%B8%AD%E6%96%AD%E5%AE%9E%E7%8E%B0%E6%8C%89%E9%94%AE%E6%A3%80%E6%B5%8B)
-3. [Lesson3_轮询Fifo实现按键检测](https://github.com/xupenghu/MCUKeys/tree/master/Examples/Lesson3_%E8%BD%AE%E8%AF%A2Fifo%E5%AE%9E%E7%8E%B0%E6%8C%89%E9%94%AE%E6%A3%80%E6%B5%8B)
-4. [Lesson4_基于FreeRTOS的按键检测](https://github.com/xupenghu/MCUKeys/tree/master/Examples/Lesson4_%E5%9F%BA%E4%BA%8EFreeRTOS%E7%9A%84%E6%8C%89%E9%94%AE%E6%A3%80%E6%B5%8B)
+```
+实测输出：
 
-联系作者：xupenghu@outlook.com
+```c
+[D/main] e_key id = 0 state = 2
+[D/main] e_key id = 1 state = 1
+[D/main] e_key id = 1 state = 2
+[D/main] e_key id = 2 state = 1
+[D/main] e_key id = 2 state = 2
+[D/main] e_key id = 3 state = 1
+[D/main] e_key id = 3 state = 2
+[D/main] e_key id = 0 state = 1
+[D/main] e_key id = 0 state = 2
+[D/main] e_key id = 0 state = 1
+[D/main] e_key id = 0 state = 2
+[D/main] e_key id = 0 state = 1
+[D/main] e_key id = 0 state = 1
+[D/main] e_key id = 0 state = 1
+[D/main] e_key id = 0 state = 1
+[D/main] e_key id = 0 state = 1
+[D/main] e_key id = 0 state = 1
+[D/main] e_key id = 0 state = 1
+[D/main] e_key id = 0 state = 2
+[D/main] e_key id = 1 state = 1
+[D/main] e_key id = 1 state = 1
+[D/main] e_key id = 1 state = 1
+[D/main] e_key id = 1 state = 2
+
+```
+
+在上述代码中，我在main函数的while(1)中特意加入了800ms延时，实测没有漏掉一个按键状态，如果在使用中有漏按键的情况，请将FIFO缓冲区开大一点。默认是50，即缓冲50个按键状态。
+
+```c
+#define KEY_FIFO_SIZE 50 //按键FIFO缓冲大小
+```
+获取源码请点击[这里](https://github.com/xupenghu/MCUKeys)，如果有帮助到你，请给star支持！
+
+联系作者：[xph](xupenghu@outlook.com)
 
 
